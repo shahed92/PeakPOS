@@ -231,6 +231,11 @@
   gap: 8px;
   padding: 10px 0;
   border-bottom: 1px solid var(--border);
+  cursor: pointer;
+}
+
+.order-item:hover {
+  background: var(--code-bg);
 }
 
 .order-item-info {
@@ -239,8 +244,15 @@
 }
 
 .order-item-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-weight: 600;
   color: var(--text-h);
+}
+
+.order-item-note-icon {
+  font-size: 12px;
 }
 
 .order-item-qty {
@@ -350,6 +362,8 @@
 .item-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  align-content: start;
+  align-items: start;
   gap: 12px;
   flex: 1;
 }
@@ -417,4 +431,282 @@
 
 .pos-toolbar button:hover {
   background: var(--code-bg);
+}
+
+/* Item detail modal */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 30;
+  padding: 16px;
+}
+
+.modal {
+  background: var(--bg);
+  color: var(--text-h);
+  border-radius: 10px;
+  width: 100%;
+  max-width: 380px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 17px;
+}
+
+.modal-close {
+  border: none;
+  background: none;
+  color: var(--text);
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.modal-body {
+  padding: 16px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.modal-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.modal-field label,
+.modal-field-static span:first-child {
+  font-size: 13px;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.modal-field input,
+.modal-field textarea {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px;
+  font-size: 15px;
+  background: var(--bg);
+  color: var(--text-h);
+}
+
+.modal-field textarea {
+  resize: vertical;
+  font-family: inherit;
+}
+
+.modal-field-static {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.quantity-stepper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.quantity-stepper input {
+  flex: 1;
+  text-align: center;
+}
+
+.quantity-stepper-btn {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--code-bg);
+  color: var(--text-h);
+  font-size: 18px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.quantity-stepper-btn:hover {
+  border-color: var(--accent-border);
+}
+
+.modal-footer {
+  display: flex;
+  gap: 8px;
+  padding: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.modal-btn {
+  flex: 1;
+  padding: 12px;
+  border: none;
+  border-radius: 6px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.modal-btn-secondary {
+  background: var(--code-bg);
+  color: var(--text-h);
+}
+
+.modal-btn-primary {
+  background: #1d7bd6;
+  color: #fff;
+}
+
+/* Payment method modal */
+.payment-method-option {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text-h);
+  padding: 16px;
+  font-size: 16px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.payment-method-option + .payment-method-option {
+  margin-top: 10px;
+}
+
+.payment-method-option:hover {
+  border-color: var(--accent-border);
+  background: var(--code-bg);
+}
+
+.payment-method-icon {
+  font-size: 22px;
+}
+
+/* Receipt modal */
+.receipt-summary {
+  font-size: 16px;
+  margin: 0 0 8px;
+}
+
+.receipt-question {
+  margin: 0;
+  color: var(--text);
+}
+
+/* Printable receipt (hidden on screen, shown only when printing) */
+.receipt-print {
+  display: none;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  .receipt-print,
+  .receipt-print * {
+    visibility: visible;
+  }
+
+  .receipt-print {
+    display: block;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    padding: 24px;
+    color: #000;
+    background: #fff;
+    font-family: 'Courier New', Courier, monospace;
+  }
+
+  .receipt-print-header {
+    text-align: center;
+    margin-bottom: 16px;
+  }
+
+  .receipt-print-header h1 {
+    margin: 0 0 4px;
+    font-size: 18px;
+  }
+
+  .receipt-print-header p {
+    margin: 0;
+    font-size: 12px;
+  }
+
+  .receipt-print-items {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin-bottom: 16px;
+  }
+
+  .receipt-print-items th,
+  .receipt-print-items td {
+    text-align: left;
+    padding: 6px 4px;
+    border-bottom: 1px dashed #000;
+    vertical-align: top;
+  }
+
+  .receipt-print-items th:not(:first-child),
+  .receipt-print-items td:not(:first-child) {
+    text-align: right;
+  }
+
+  .receipt-print-note {
+    font-size: 11px;
+    font-style: italic;
+    margin-top: 2px;
+  }
+
+  .receipt-print-totals {
+    border-top: 1px solid #000;
+    padding-top: 8px;
+    font-size: 13px;
+  }
+
+  .receipt-print-totals div {
+    display: flex;
+    justify-content: space-between;
+    padding: 3px 0;
+  }
+
+  .receipt-print-grand-total {
+    font-weight: 700;
+    font-size: 15px;
+    border-top: 1px dashed #000;
+    margin-top: 4px;
+    padding-top: 6px !important;
+  }
+
+  .receipt-print-thanks {
+    text-align: center;
+    margin-top: 20px;
+    font-size: 13px;
+  }
 }

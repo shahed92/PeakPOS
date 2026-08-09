@@ -14,6 +14,7 @@ export interface SaleItem {
   name: string
   price: number
   quantity: number
+  notes?: string
 }
 
 export interface Sale {
@@ -22,6 +23,7 @@ export interface Sale {
   total: number
   createdAt: number
   synced: boolean
+  paymentMethod: string
 }
 
 export const db = new Dexie('PeakPosDB') as Dexie & {

@@ -24,6 +24,20 @@ function App() {
   const [category, setCategory] = useState(CATEGORIES[4])
   const [search, setSearch] = useState('')
   const [menuOpen, setMenuOpen] = useState(false)
+  const [detailItem, setDetailItem] = useState<SaleItem | null>(null)
+  const [detailPrice, setDetailPrice] = useState('')
+  const [detailQuantity, setDetailQuantity] = useState('')
+  const [detailNotes, setDetailNotes] = useState('')
+  const [paymentMethodOpen, setPaymentMethodOpen] = useState(false)
+  const [receipt, setReceipt] = useState<{
+    method: string
+    items: SaleItem[]
+    subtotal: number
+    discount: number
+    tax: number
+    total: number
+    createdAt: number
+  } | null>(null)
 
   useEffect(() => {
     seedIfEmpty()
@@ -50,9 +64,11 @@ function App() {
     return products.filter((p) => p.category === category)
   }, [products, category, search])
 
+  const TAX_RATE = 0.089
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
   const discount = 0
-  const total = subtotal - discount
+  const tax = (subtotal - discount) * TAX_RATE
+  const total = subtotal - discount + tax
 
   function addToCart(product: Product) {
     setCart((prev) => {
@@ -70,15 +86,71 @@ function App() {
     setCart((prev) => prev.filter((item) => item.productId !== productId))
   }
 
-  async function checkout() {
+  function openItemDetail(item: SaleItem) {
+    setDetailItem(item)
+    setDetailPrice(item.price.toFixed(2))
+    setDetailQuantity(String(item.quantity))
+    setDetailNotes(item.notes ?? '')
+  }
+
+  function closeItemDetail() {
+    setDetailItem(null)
+  }
+
+  function saveItemDetail() {
+    if (!detailItem) return
+    const parsedPrice = parseFloat(detailPrice)
+    const price = Number.isFinite(parsedPrice) && parsedPrice >= 0 ? parsedPrice : detailItem.price
+    const parsedQuantity = parseInt(detailQuantity, 10)
+    const quantity = Number.isFinite(parsedQuantity) && parsedQuantity >= 1 ? parsedQuantity : detailItem.quantity
+    const notes = detailNotes.trim() || undefined
+    setCart((prev) =>
+      prev.map((item) =>
+        item.productId === detailItem.productId ? { ...item, price, quantity, notes } : item,
+      ),
+    )
+    setDetailItem(null)
+  }
+
+  async function completeCheckout(method: string) {
     if (cart.length === 0) return
+    const saleItems = cart
+    const saleSubtotal = subtotal
+    const saleDiscount = discount
+    const saleTax = tax
+    const saleTotal = total
+    const createdAt = Date.now()
     await db.sales.add({
-      items: cart,
-      total,
-      createdAt: Date.now(),
+      items: saleItems,
+      total: saleTotal,
+      createdAt,
       synced: false,
+      paymentMethod: method,
     })
     setCart([])
+    setReceipt({
+      method,
+      items: saleItems,
+      subtotal: saleSubtotal,
+      discount: saleDiscount,
+      tax: saleTax,
+      total: saleTotal,
+      createdAt,
+    })
+  }
+
+  function chooseCardMethod(method: 'Credit' | 'Debit') {
+    setPaymentMethodOpen(false)
+    completeCheckout(method)
+  }
+
+  function closeReceipt() {
+    setReceipt(null)
+  }
+
+  function printReceipt() {
+    window.print()
+    setReceipt(null)
   }
 
   return (
@@ -136,13 +208,26 @@ function App() {
           ) : (
             <ul className="order-list">
               {cart.map((item) => (
-                <li key={item.productId} className="order-item">
+                <li
+                  key={item.productId}
+                  className="order-item"
+                  onClick={() => openItemDetail(item)}
+                >
                   <div className="order-item-info">
-                    <span className="order-item-name">{item.name}</span>
+                    <span className="order-item-name">
+                      {item.name}
+                      {item.notes && <span className="order-item-note-icon" title={item.notes}>📝</span>}
+                    </span>
                     <span className="order-item-qty">x{item.quantity}</span>
                   </div>
                   <span className="order-item-price">${(item.price * item.quantity).toFixed(2)}</span>
-                  <button className="order-item-remove" onClick={() => removeFromCart(item.productId)}>
+                  <button
+                    className="order-item-remove"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      removeFromCart(item.productId)
+                    }}
+                  >
                     ✕
                   </button>
                 </li>
@@ -159,6 +244,10 @@ function App() {
               <span>Discount</span>
               <span>${discount.toFixed(2)}</span>
             </div>
+            <div className="totals-row">
+              <span>Tax (8.9%)</span>
+              <span>${tax.toFixed(2)}</span>
+            </div>
             <div className="totals-row totals-total">
               <span>Total</span>
               <span>${total.toFixed(2)}</span>
@@ -166,10 +255,18 @@ function App() {
           </div>
 
           <div className="payment-buttons">
-            <button className="pay-btn pay-btn-secondary" disabled={cart.length === 0}>
+            <button
+              className="pay-btn pay-btn-secondary"
+              disabled={cart.length === 0}
+              onClick={() => setPaymentMethodOpen(true)}
+            >
               All Payments
             </button>
-            <button className="pay-btn pay-btn-primary" disabled={cart.length === 0} onClick={checkout}>
+            <button
+              className="pay-btn pay-btn-primary"
+              disabled={cart.length === 0}
+              onClick={() => completeCheckout('Cash')}
+            >
               Cash
             </button>
           </div>
@@ -213,6 +310,219 @@ function App() {
         <button>Drawer</button>
         <button>More ⋮</button>
       </footer>
+
+      {detailItem && (
+        <div className="modal-backdrop" onClick={closeItemDetail}>
+          <div className="modal item-detail-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>{detailItem.name}</h2>
+              <button className="modal-close" aria-label="Close" onClick={closeItemDetail}>
+                ✕
+              </button>
+            </div>
+
+            <div className="modal-body">
+              <div className="modal-field">
+                <label htmlFor="detail-price">Price</label>
+                <input
+                  id="detail-price"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={detailPrice}
+                  onChange={(e) => setDetailPrice(e.target.value)}
+                />
+              </div>
+
+              <div className="modal-field">
+                <label htmlFor="detail-quantity">Quantity</label>
+                <div className="quantity-stepper">
+                  <button
+                    type="button"
+                    className="quantity-stepper-btn"
+                    onClick={() =>
+                      setDetailQuantity((q) => String(Math.max(1, (parseInt(q, 10) || 1) - 1)))
+                    }
+                  >
+                    −
+                  </button>
+                  <input
+                    id="detail-quantity"
+                    type="number"
+                    step="1"
+                    min="1"
+                    value={detailQuantity}
+                    onChange={(e) => setDetailQuantity(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    className="quantity-stepper-btn"
+                    onClick={() =>
+                      setDetailQuantity((q) => String((parseInt(q, 10) || 0) + 1))
+                    }
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+
+              <div className="modal-field modal-field-static">
+                <span>Line Total</span>
+                <span>
+                  $
+                  {(
+                    (Number.isFinite(parseFloat(detailPrice)) ? parseFloat(detailPrice) : detailItem.price) *
+                    (Number.isFinite(parseInt(detailQuantity, 10)) && parseInt(detailQuantity, 10) >= 1
+                      ? parseInt(detailQuantity, 10)
+                      : detailItem.quantity)
+                  ).toFixed(2)}
+                </span>
+              </div>
+
+              <div className="modal-field">
+                <label htmlFor="detail-notes">Notes</label>
+                <textarea
+                  id="detail-notes"
+                  rows={4}
+                  placeholder="Add a note for this item…"
+                  value={detailNotes}
+                  onChange={(e) => setDetailNotes(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="modal-footer">
+              <button className="modal-btn modal-btn-secondary" onClick={closeItemDetail}>
+                Cancel
+              </button>
+              <button className="modal-btn modal-btn-primary" onClick={saveItemDetail}>
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {paymentMethodOpen && (
+        <div className="modal-backdrop" onClick={() => setPaymentMethodOpen(false)}>
+          <div className="modal payment-method-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Select Payment Method</h2>
+              <button
+                className="modal-close"
+                aria-label="Close"
+                onClick={() => setPaymentMethodOpen(false)}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="modal-body">
+              <button className="payment-method-option" onClick={() => chooseCardMethod('Credit')}>
+                <span className="payment-method-icon">💳</span>
+                <span>Credit</span>
+              </button>
+              <button className="payment-method-option" onClick={() => chooseCardMethod('Debit')}>
+                <span className="payment-method-icon">🏧</span>
+                <span>Debit</span>
+              </button>
+            </div>
+
+            <div className="modal-footer">
+              <button
+                className="modal-btn modal-btn-secondary"
+                onClick={() => setPaymentMethodOpen(false)}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {receipt && (
+        <div className="modal-backdrop" onClick={closeReceipt}>
+          <div className="modal receipt-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Payment Approved</h2>
+            </div>
+
+            <div className="modal-body">
+              <p className="receipt-summary">
+                Paid <strong>${receipt.total.toFixed(2)}</strong> via {receipt.method}
+              </p>
+              <p className="receipt-question">Print a receipt for this order?</p>
+            </div>
+
+            <div className="modal-footer">
+              <button className="modal-btn modal-btn-secondary" onClick={closeReceipt}>
+                No Thanks
+              </button>
+              <button className="modal-btn modal-btn-primary" onClick={printReceipt}>
+                Print Receipt
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {receipt && (
+        <div className="receipt-print">
+          <div className="receipt-print-header">
+            <h1>MOBILE BUZZ WIRELESS</h1>
+            <p>{new Date(receipt.createdAt).toLocaleString()}</p>
+          </div>
+
+          <table className="receipt-print-items">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Qty</th>
+                <th>Price</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {receipt.items.map((item) => (
+                <tr key={item.productId}>
+                  <td>
+                    {item.name}
+                    {item.notes && <div className="receipt-print-note">Note: {item.notes}</div>}
+                  </td>
+                  <td>{item.quantity}</td>
+                  <td>${item.price.toFixed(2)}</td>
+                  <td>${(item.price * item.quantity).toFixed(2)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <div className="receipt-print-totals">
+            <div>
+              <span>Subtotal</span>
+              <span>${receipt.subtotal.toFixed(2)}</span>
+            </div>
+            <div>
+              <span>Discount</span>
+              <span>${receipt.discount.toFixed(2)}</span>
+            </div>
+            <div>
+              <span>Tax</span>
+              <span>${receipt.tax.toFixed(2)}</span>
+            </div>
+            <div className="receipt-print-grand-total">
+              <span>Total</span>
+              <span>${receipt.total.toFixed(2)}</span>
+            </div>
+            <div>
+              <span>Payment Method</span>
+              <span>{receipt.method}</span>
+            </div>
+          </div>
+
+          <p className="receipt-print-thanks">Thank you for your purchase!</p>
+        </div>
+      )}
     </div>
   )
 }
